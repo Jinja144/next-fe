@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  frontend:
+    image: node:14.7.0-alpine3.12
+    working_dir: /home/node/app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./front-end:/home/node/app
+    command: "npm run dev"
