@@ -1,0 +1,91 @@
+#!/bin/sh
+
+function installNodeModules() {
+    cd ./front-end
+    if [ -d "node_modules" ]; then
+        rm -rf node_modules
+    fi
+    npm install
+    cd ../
+}
+
+function buildNextApp() {
+    cd ./front-end
+    npm run build
+    cd ../
+}
+
+function buildProd() {
+    tag=$1
+    echo "Building production container..."
+    installNodeModules
+    buildNextApp
+    docker build -t next-fe:$tag -f ./front-end/Dockerfile ./front-end
+}
+
+function runProd() {
+    tag=$1
+    containerName="prod-$tag"
+    if [ "$(docker ps -a | grep $containerName)" ]; then
+        echo "A container called $containerName is already running"
+        echo "Removing container..."
+        docker rm -f $containerName
+    fi
+    echo "Starting production container..."
+    docker run --name $containerName -p 3000:3000 -d next-fe:$tag
+    echo "Started container with name $containerName"
+    echo "The application is running at http://localhost:3000"
+}
+
+function buildAndRunProd() {
+    branch_name="$(git branch --show-current)"
+    buildProd $branch_name
+    runProd $branch_name
+}
+
+function runDev() {
+    docker-compose up
+}
+
+function runDebug() {
+    docker-compose -f docker-compose.yaml -f debug-compose.yaml up
+}
+
+function showHelp() {
+    echo "This script builds and runs the front end for my voucher codes."
+    echo "It can build a development version of the application, and a production version."
+    echo "It will itterate through the options in order before breaking after building an environment."
+    echo "For example this allows you to install node modules before building the dev server using the options -i -d"
+    echo " "
+    echo "options:"
+    echo "-d, --dev                 run the development version of next and the mock api servers"
+    echo "-D, --debug               run the debug version of next and the mock api servers. Server setup will pause after the routes_api,"
+    echo "                                  you will need to add a debugger and continue the next code execution to use the site"
+    echo "-i, --install             install node modules for development"
+    exit 0
+}
+
+for var in "$@"
+do
+    case "$var" in
+    -h | --help)
+        showHelp
+        break
+        ;;
+    -i | --install)
+        installNodeModules
+        ;;
+    -d | --dev)
+        runDev
+        break
+        ;;
+    -D | --debug)
+        runDebug
+        break
+        ;;
+    -p | --prod)
+        buildAndRunProd
+        break
+        ;;
+    esac
+done
